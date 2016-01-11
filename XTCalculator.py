@@ -301,7 +301,7 @@ class MyModule:
                 #record the current operation data
 
                 array_op[array_op == np.inf] = michan
-                array_op[array_op == np.nan] = michan
+                array_op[np.isnan(array_op)] = michan
                 array_op[array_op < michan] = michan
                 array_op[array_op > machan] = machan
                 self.operation_data[tp] = array_op
