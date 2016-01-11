@@ -2,6 +2,11 @@
 #
 # Copyright (c) 2013 Egor Zindy <egor.zindy@manchester.ac.uk>
 #
+# ArrayElementVar and ArrayVar based on Bryan Oakley's code from
+# http://stackoverflow.com/questions/3876229/how-to-run-a-code-whenever-a-tkinter-widget-value-changes
+# TooltipBase by Eli Bendersky <eliben@gmail.com>
+# https://hg.python.org/cpython/file/63a00d019bb2/Lib/idlelib/ToolTip.py
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
