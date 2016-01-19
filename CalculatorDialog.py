@@ -34,7 +34,7 @@ class Dialog(TkDialog):
         self.arraychannel = None
 
         self.wm_geometry("500x470")
-        self.title("Image calculator for Imaris - Copyright (c) 2015 Egor Zindy")
+        self.title("Channel Calculator XTension - Copyright (c) 2015 Egor Zindy")
 
         widget = [ttk.Combobox(self.mainframe, textvariable=self.arrayvar("chana_input"), values=[], exportselection=0, state="readonly"),
                 ttk.Entry(self.mainframe,textvariable=self.arrayvar("factor_a"))]
@@ -51,7 +51,7 @@ class Dialog(TkDialog):
         self.add_control("Channel B times",widget, tick=tick, tooltip=tooltip, tooltip1=tooltip1)
 
         widget = ttk.Combobox(self.mainframe, textvariable=self.arrayvar("operation_type"), values=list_operations, exportselection=0, state="readonly")
-        tooltip = "Choose an operation to perform on Image A and Image B"
+        tooltip = "Choose an operation to perform on Channel A and Channel B"
         self.add_control("Operation",widget, name="ctrl_operations", tooltip=tooltip)
 
         widget = ttk.Checkbutton(self.mainframe, variable=self.arrayvar("check_threshold","off"), text="(click to activate)", onvalue="on", offvalue="off")

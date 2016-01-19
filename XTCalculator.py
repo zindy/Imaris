@@ -6,7 +6,7 @@
 #
 #    <CustomTools>
 #      <Menu name = "Python plugins">
-#       <Item name="Image Calculator" icon="Python" tooltip="Image Calculator for Imaris.">
+#       <Item name="Channel Calculator" icon="Python" tooltip="Channel Calculator for Imaris.">
 #         <Command>PythonXT::XTCalculator(%i)</Command>
 #       </Item>
 #      </Menu>
@@ -67,8 +67,8 @@ class MyModule:
         self.Dialog=CalculatorDialog.Dialog()
 
         #Get the right icon...
-        fn_icon = './Imaris_128.ico'
-        if '8.' in self.vImaris.GetVersion(): fn_icon = './Imaris8_128.ico'
+        fn_icon = './icons/Imaris_128.ico'
+        if '8.' in self.vImaris.GetVersion(): fn_icon = './icons/Imaris8_128.ico'
         self.Dialog.wm_iconbitmap(fn_icon)
 
         self.Dialog.ExitOK = self.ExitOK
@@ -114,8 +114,6 @@ class MyModule:
             michan = self.vDataSet.GetChannelRangeMin(channel)
             machan = self.vDataSet.GetChannelRangeMax(channel)
 
-        #print michan,machan
-
         self.Dialog.ctrl_lothresh.config(from_=michan, to=machan,tickinterval=(machan-michan)/8.)
         self.Dialog.ctrl_hithresh.config(from_=michan, to=machan,tickinterval=(machan-michan)/8.)
 
@@ -141,7 +139,7 @@ class MyModule:
         if (arrayvar["check_liveview"] == "on"):
             self.Preview()
 
-    def GetOutputChannel(self,match="(calculator)"):
+    def GetOutputChannel(self,match="(calc)"):
         """Finds the output channel for this plugin.
         If none found, this method will create a new channel and return its new index
         In any case, channel name reflects channels and operation"""
@@ -335,11 +333,15 @@ class MyModule:
                 mi, ma = miarr, maarr
 
             if mi == ma:
-                ma = mi + (maarr-miarr)/100.
+                if miarr != maarr:
+                    ma = mi + (maarr-miarr)/100.
+                else:
+                    ma = mi+1
 
             if check_normalise:
                 #when normalising, this isn't an issue as normalisation occurs after clipping.
                 array_op[array_op < mi] = mi
+                array_op[array_op > ma] = ma
             else:
                 #Here, we are not normalising so values below the minimum value mi should be set to 0 rather than the mi value...
                 #unless mi is itself below 0 (although that would be an odd thing to do, but still need to be accounted for).

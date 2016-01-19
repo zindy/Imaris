@@ -662,6 +662,22 @@ if __name__ == "__main__":
             else:
                 app.disable("scale2")
 
+        ####################################################
+        #Showing how to link two scales.
+        #I use this a lot for min/max threshold settings, e.g. contrast stretching.
+        lothresh = float(arrayvar["scale1"])
+        hithresh = float(arrayvar["scale2"])
+
+        if elementname == "scale1":
+            if lothresh > hithresh:
+                arrayvar["scale2"] = lothresh 
+
+        elif elementname == "scale2":
+            if hithresh < lothresh:
+                arrayvar["scale1"] = hithresh
+        #
+        ####################################################
+
     def Update(arrayvar, elementname):
         '''Show the new value in a label'''
         s = "%s changed; new value='%s'" % (elementname, arrayvar[elementname])

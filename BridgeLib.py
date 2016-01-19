@@ -119,9 +119,9 @@ def GetDataVolume(vDataSet,aIndexC,aIndexT):
         arr = numpy.fromstring(s,GetType(vDataSet)).reshape((nz,ny,nx))
     elif dtype == numpy.uint16:
         s = vDataSet.GetDataVolumeAs1DArrayShorts(aIndexC,aIndexT)
-        arr = numpy.array(s).reshape((nz,ny,nx))
+        arr = numpy.array(s).reshape((nz,ny,nx)).astype(numpy.uint16)
     elif dtype == numpy.float32:
-        s = vDataSet.GetDataVolumeAs1DArrayShorts(aIndexC,aIndexT)
+        s = vDataSet.GetDataVolumeAs1DArrayFloats(aIndexC,aIndexT)
         arr = numpy.array(s).reshape((nz,ny,nx))
     return arr
 
@@ -143,7 +143,7 @@ def SetDataVolume(vDataSet,arr,aIndexC,aIndexT):
         s = arr.ravel().tolist()
         vDataSet.SetDataVolumeAs1DArrayBytes(s,aIndexC,aIndexT)
     elif dtype == numpy.uint16:
-        s = arr.ravel() #.tolist()
+        s = arr.ravel().astype(numpy.int16)
         vDataSet.SetDataVolumeAs1DArrayShorts(s,aIndexC,aIndexT)
     elif dtype == numpy.float32:
         s = arr.ravel() #.tolist()
@@ -160,6 +160,22 @@ def GetVoxelSize(vDataSet):
     if nz > 0: nz = abs(vDataSet.GetExtendMaxZ()-vDataSet.GetExtendMinZ())/nz;
 
     return nx,ny,nz
+
+def GetChannelColorRGBA(vDataSet,aIndexC):
+    """Returns the R,G,B,alpha values (0-255) given a channel index"""
+
+    rgba = vDataSet.GetChannelColorRGBA(aIndexC)
+    r = rgba & 255
+    g = (rgba >> 8) & 255
+    b = (rgba >> 16) & 255
+    a = (rgba >> 24) & 255
+    return r,g,b,a
+
+def SetChannelColorRGBA(vDataSet,aIndexC,r,g,b,a):
+    """Sets the colour of a channel given its index and the R,G,B,alpha values (0-255) values"""
+
+    rgba = (int(a) << 24) + (int(b) << 16) + (int(g) << 8) + (int(r))
+    vDataSet.SetChannelColorRGBA(aIndexC,rgba)
 
 def RemoveSurpassObject(vImaris,vChild):
     vScene = vImaris.GetSurpassScene()
