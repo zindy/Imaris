@@ -19,6 +19,7 @@
 import numpy
 import ImarisLib
 import Ice
+import sys
 
 #make tType available
 _M_Imaris = Ice.openModule('Imaris')
@@ -52,44 +53,53 @@ def Reconnect(newId):
 
     return vImaris,vDataSet
 
-def GetType(dataset):
+def GetType(vDataSet):
     """Get the numpy dtype of the dataset"""
-    return imaris_types[str(dataset.GetType())]
+    return imaris_types[str(vDataSet.GetType())]
 
-def GetRange(dataset):
+def GetRange(vDataSet):
     """Get the pixel intensity range of the dataset"""
-    dtype = GetType(dataset)
-    if dtype == numpy.uint8 or dtype == numpy.uint16:
-        info = numpy.iinfo(dtype)
-    else:
-        info = numpy.finfo(dtype)
-    return info.min,info.max
+    nc = vDataSet.GetSizeC()
+    maset = 0
+    for i in range(nc):
+        ma = vDataSet.GetChannelRangeMax(i)
+        if ma > maset:
+            maset = ma
+    maset = numpy.power(2,numpy.ceil(numpy.log2(maset)))-1
+    return 0,maset
 
-def GetExtent(dataset):
+    #dtype = GetType(vDataSet)
+    #if dtype == numpy.uint8 or dtype == numpy.uint16:
+    #    info = numpy.iinfo(dtype)
+    #else:
+    #    info = numpy.finfo(dtype)
+    #return info.min,info.max
+
+def GetExtent(vDataSet):
     """Get the X,Y,Z extents of a dataset"""
-    return [dataset.GetExtendMinX(),dataset.GetExtendMaxX(),
-            dataset.GetExtendMinY(),dataset.GetExtendMaxY(),
-            dataset.GetExtendMinZ(),dataset.GetExtendMaxZ()]
+    return [vDataSet.GetExtendMinX(),vDataSet.GetExtendMaxX(),
+            vDataSet.GetExtendMinY(),vDataSet.GetExtendMaxY(),
+            vDataSet.GetExtendMinZ(),vDataSet.GetExtendMaxZ()]
 
-def GetResolution(dataset):
+def GetResolution(vDataSet):
     """Get the X,Y,Z pixel resolution of a dataset"""
-    xmin,xmax,ymin,ymax,zmin,zmax = GetExtent(dataset)
-    nx,ny,nz = dataset.GetSizeX(),dataset.GetSizeY(),dataset.GetSizeZ()
+    xmin,xmax,ymin,ymax,zmin,zmax = GetExtent(vDataSet)
+    nx,ny,nz = vDataSet.GetSizeX(),vDataSet.GetSizeY(),vDataSet.GetSizeZ()
 
     return (xmax-xmin)/nx, (ymax-ymin)/ny, (zmax-zmin)/nz
 
-def GetDataSlice(dataset,z,c,t):
+def GetDataSlice(vDataSet,z,c,t):
     """Given z, channel, time indexes, return a numpy array"""
-    dtype = GetType(dataset)
+    dtype = GetType(vDataSet)
     if dtype == numpy.uint8 or dtype == numpy.uint16:
-        arr = numpy.array(dataset.GetDataSliceShorts(z,c,t),dtype)
+        arr = numpy.array(vDataSet.GetDataSliceShorts(z,c,t),dtype)
     else:
-        arr = numpy.array(dataset.GetDataSliceFloats(z,c,t),dtype)
+        arr = numpy.array(vDataSet.GetDataSliceFloats(z,c,t),dtype)
     return arr
 
-def SetDataSlice(dataset,arr,z,c,t):
+def SetDataSlice(vDataSet,arr,z,c,t):
     """Given an array and z, channel, time indexes, replace a slice in an Imaris Dataset"""
-    dtype = GetType(dataset)
+    dtype = GetType(vDataSet)
     if dtype == numpy.uint8 or dtype == numpy.uint16:
         arr2 = arr.copy()
         dtype = arr2.dtype
@@ -97,9 +107,9 @@ def SetDataSlice(dataset,arr,z,c,t):
             arr2[arr2 < 0] = 0
             arr2[arr2 > 65535] = 65535
             arr = arr2.astype(numpy.uint16)
-        dataset.SetDataSliceShorts(arr,z,c,t)
+        vDataSet.SetDataSliceShorts(arr,z,c,t)
     else:
-        dataset.SetDataSliceFloats(arr.tolist(),z,c,t)
+        vDataSet.SetDataSliceFloats(arr.tolist(),z,c,t)
 
 def GetDataVolume(vDataSet,aIndexC,aIndexT):
     """Given channel, time indexes, return a numpy array corresponding to the volume"""
@@ -139,10 +149,15 @@ def SetDataVolume(vDataSet,arr,aIndexC,aIndexT):
         print aIndexC
         print aIndexT
 
+    miset,maset = GetRange(vDataSet)
+    arr[arr<miset]=miset
+    arr[arr>maset]=maset
+
     if dtype == numpy.uint8:
         s = arr.ravel().tolist()
         vDataSet.SetDataVolumeAs1DArrayBytes(s,aIndexC,aIndexT)
     elif dtype == numpy.uint16:
+
         s = arr.ravel().astype(numpy.int16)
         vDataSet.SetDataVolumeAs1DArrayShorts(s,aIndexC,aIndexT)
     elif dtype == numpy.float32:
@@ -171,10 +186,15 @@ def GetChannelColorRGBA(vDataSet,aIndexC):
     a = (rgba >> 24) & 255
     return r,g,b,a
 
-def SetChannelColorRGBA(vDataSet,aIndexC,r,g,b,a):
+def SetChannelColorRGBA(vDataSet,aIndexC,color):
     """Sets the colour of a channel given its index and the R,G,B,alpha values (0-255) values"""
 
+    a = 0
+    r,g,b = color[0], color[1], color[2]
+    if len(color) > 3: a = color[3]
+
     rgba = (int(a) << 24) + (int(b) << 16) + (int(g) << 8) + (int(r))
+    #print r,g,b,a,rgba
     vDataSet.SetChannelColorRGBA(aIndexC,rgba)
 
 def RemoveSurpassObject(vImaris,vChild):
@@ -249,6 +269,42 @@ def SetSurpassObject(vImaris,search="spots",name=None):
     vScene.AddChild(vChild,nChildren)
     return vChild
 
+def FindChannel(vDataSet,match="(output)",create=True, color=None):
+    """Finds a channel from a substring. If not found then create a new one (if create true)
+    If none found and create is True, this method will create a new channel and return
+    its new index. If not found and create is False, returns -1
+    """
+
+    ret = -1
+    if match is not None:
+        nc = vDataSet.GetSizeC()
+        for i in range(nc):
+            name = vDataSet.GetChannelName(i)
+            if match in name:
+                ret = i
+                break
+
+    miset,maset = GetRange(vDataSet)
+    if ret == -1 and create == True:
+        vDataSet.SetSizeC(nc+1)
+        ret = nc
+        vDataSet.SetChannelName(ret,match)
+        vDataSet.SetChannelRange(ret,miset,maset)
+
+    #allows to change the channel colour once the channel was found
+    #color specified as 
+    if ret >= 0 and color is not None:
+        #r = 255.*color[0]/maset
+        #g = 255.*color[1]/maset
+        #b = 255.*color[2]/maset
+        #a = 0.
+        #if len(color) > 3:
+        #    a = 255*color[2]/maset
+
+        SetChannelColorRGBA(vDataSet,ret,color) #r,g,b,a)
+
+    return ret
+
 def query_yes_no(question, default="yes"):
     """Ask a yes/no question via raw_input() and return their answer.
 
@@ -281,3 +337,37 @@ def query_yes_no(question, default="yes"):
             sys.stdout.write("Please respond with 'yes' or 'no' "\
                              "(or 'y' or 'n').\n")
     
+def query_num(prompt="Type a number between 1 and 10", default=None, lims = [1,10]):
+    if default is not None:
+        if type(default) == int or type(default) == long:
+            prompt = prompt+" (%d)" % default
+        else:
+            prompt = prompt+" (%.2f)" % default
+    prompt += ": "
+
+    while True:
+        s = raw_input(prompt)
+
+        if s == "":
+            if default is None:
+                continue
+            else:
+                val = default
+                break
+
+        try:
+            if type(default) == int or type(default) == long:
+                val = int(s)
+            else:
+                val = float(s)
+        except ValueError:
+            continue
+
+        if lims is not None and (val < lims[0] or val > lims[1]):
+            print "  Type a number between %d and %d" % (lims[0],lims[1])
+            continue
+
+        break
+
+    return val
+
