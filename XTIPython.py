@@ -208,7 +208,8 @@ def Run(aImarisId):
     #_watcher.run()
 
     os.environ["IMARISID"] = str(aImarisId)
+    os.environ["PYTHONPATH"] = os.getcwd()+os.path.pathsep+os.environ["PYTHONPATH"]
 
-    sys.argv = [sys.argv[0],'--ip=\'*\'']
+    sys.argv = [sys.argv[0]] #,'--ip=\'*\'','--notebook-dir=\'%s\'' % p]
     sys.exit(main())
 
