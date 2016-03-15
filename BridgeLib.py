@@ -20,6 +20,7 @@ import numpy
 import ImarisLib
 import Ice
 import sys
+import time
 
 #make tType available
 _M_Imaris = Ice.openModule('Imaris')
@@ -74,6 +75,23 @@ def GetRange(vDataSet):
     #else:
     #    info = numpy.finfo(dtype)
     #return info.min,info.max
+
+def GetTimepoint(vDataSet, tpi):
+    dt = vDataSet.GetTimePoint(tpi)[:-4]
+    pattern = '%Y-%m-%d %H:%M:%S.%f'
+    return int(time.mktime(time.strptime(dt,pattern)))+float("0."+dt.split(".")[1])
+
+def GetTimepoints(vDataSet,tpis):
+    """Given a list of timepoint indexes, return the timepoints"""
+
+    t0 = GetTimepoint(vDataSet,0)
+    nt = len(tpis)
+    ret = numpy.zeros(nt)
+
+    for i in range(nt):
+        ret[i] = GetTimepoint(vDataSet,tpis[i])-t0
+
+    return ret
 
 def GetExtent(vDataSet):
     """Get the X,Y,Z extents of a dataset"""
@@ -229,6 +247,16 @@ def GetSurpassObjects(vImaris,search="spots"):
         elif search.lower() == "surfaces":
             if vFactory.IsSurfaces(vChild):
                 vSurfaces = vFactory.ToSurfaces(vChild)
+                vName = vChild.GetName()
+                ret[vName] = vSurfaces
+        elif search.lower() == "filaments":
+            if vFactory.IsFilaments(vChild):
+                vSurfaces = vFactory.ToFilaments(vChild)
+                vName = vChild.GetName()
+                ret[vName] = vSurfaces
+        elif search.lower() == "cells":
+            if vFactory.IsCells(vChild):
+                vSurfaces = vFactory.ToCells(vChild)
                 vName = vChild.GetName()
                 ret[vName] = vSurfaces
 

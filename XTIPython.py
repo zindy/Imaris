@@ -98,7 +98,7 @@ class ImarisMagics(Magics):
     def imaris_pull(self, line):
         '''Line-level magic that pulls objects from Imaris.
 
-        You can pull: dataset, spots...
+        You can pull: spots, surfaces, filaments or cells.
 
             In [6]: %imaris_pull spots
             Out[6]: ['Spots 1', 'Spots 1 Selection']
@@ -114,23 +114,11 @@ class ImarisMagics(Magics):
         ret = []
         outputs = line.split(' ')
         for output in outputs:
-            output = unicode_to_str(output)
-            if output == "dataset":
-                self.shell.push({output: self.vDataSet})
-                ret.append(self.vDataSet)
-            elif output == "spots":
-                spots = BridgeLib.GetSurpassObjects(self.vImaris)
-                self.shell.push({output: spots})
-                ret.append(spots.keys())
-            elif output == "timepoints":
-                nt = self.vDataSet.GetSizeT()
-                pattern = '%Y-%m-%d %H:%M:%S.%f'
-                arr = np.zeros(nt,float)
-                for i in range(nt):
-                    dt = vDataSet.GetTimePoint(i)[:-4]
-                    arr[i] = int(time.mktime(time.strptime(dt,pattern)))+float("0."+dt.split(".")[1])
-                self.shell.push({output: arr-arr[0]})
-                ret.append(arr)
+            output = unicode_to_str(output).lower()
+            if output in ["spots", "surfaces", "filaments", "cells"]:
+                objs = BridgeLib.GetSurpassObjects(self.vImaris,output)
+                self.shell.push({output: objs})
+                ret.append(objs.keys())
             else:
                 raise ImarisMagicError('No such object available')
 
