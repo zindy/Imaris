@@ -674,12 +674,13 @@ class TestDialog(TkDialog):
         self.add_menu("Help",["About"])
 
         self.labelvar = tk.StringVar()
-        self.labelvar.set("Click on a widget to see this message change")
+        self.labelvar.set("Click on a widget to see this message change. Mouse-over the label to see a tooltip")
         # in some cases, it can be advantageous to name the widget via the "name" argument.
         # This widget will then be available through TestDialog.name
         # In most cases though, you only need to specify an arrayvar variable and the arrayvar name will be used instead
         widget = ttk.Label(self.mainframe,textvariable=self.labelvar,name="label1")
-        self.add_control("Info",widget,tooltip="This is a label")
+        tooltip = "The following message is changed in Update() in response to any changes to the UI"
+        self.add_control("Info",widget,tooltip=tooltip)
 
         widget = [ttk.Radiobutton(self.mainframe, variable=self.arrayvar("radiobutton"), text="one", value=1),
                 ttk.Radiobutton(self.mainframe, variable=self.arrayvar("radiobutton"), text="two", value=2),
@@ -832,6 +833,8 @@ if __name__ == "__main__":
                 OpenConfig()
             elif arrayvar[elementname] == "File/Save config":
                 SaveConfig()
+            elif arrayvar[elementname] == "File/Exit":
+                app.Quit()
 
         s = arrayvar.get_json()
         print s
@@ -862,3 +865,4 @@ if __name__ == "__main__":
     app.ExitCancel = ExitCancel
 
     app.mainloop()
+
