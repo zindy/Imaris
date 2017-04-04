@@ -83,6 +83,7 @@ class ImarisMagics(Magics):
     def __init__(self, shell):
         # You must call the parent constructor
         super(ImarisMagics, self).__init__(shell)
+        print("You can now access BridgeLib, ImarisLib, vImaris, vDataSet, vScene and vFactory")
 
         self.ImarisId = int(os.environ.get("IMARISID"))
         self.vImaris, self.vDataSet = BridgeLib.Reconnect(self.ImarisId)
@@ -92,6 +93,8 @@ class ImarisMagics(Magics):
         shell.user_ns["ImarisLib"]=ImarisLib
         shell.user_ns["vImaris"]=self.vImaris
         shell.user_ns["vDataSet"]=self.vDataSet
+        shell.user_ns["vScene"]=self.vImaris.GetSurpassScene()
+        shell.user_ns["vFactory"]=self.vImaris.GetFactory()
 
     @skip_doctest
     @line_magic
