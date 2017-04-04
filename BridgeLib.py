@@ -99,6 +99,15 @@ def GetExtent(vDataSet):
             vDataSet.GetExtendMinY(),vDataSet.GetExtendMaxY(),
             vDataSet.GetExtendMinZ(),vDataSet.GetExtendMaxZ()]
 
+def SetExtent(vDataSet,extent):
+    """Get the X,Y,Z extents of a dataset"""
+    vDataSet.SetExtendMinX(extent[0])
+    vDataSet.SetExtendMaxX(extent[1])
+    vDataSet.SetExtendMinY(extent[2])
+    vDataSet.SetExtendMaxY(extent[3])
+    vDataSet.SetExtendMinZ(extent[4])
+    vDataSet.SetExtendMaxZ(extent[5])
+
 def GetResolution(vDataSet):
     """Get the X,Y,Z pixel resolution of a dataset"""
     xmin,xmax,ymin,ymax,zmin,zmax = GetExtent(vDataSet)
@@ -239,7 +248,12 @@ def GetSurpassObjects(vImaris,search="spots"):
     nChildren = vScene.GetNumberOfChildren()
     for i in range(nChildren):
         vChild = vScene.GetChild(i)
-        if search.lower() == "spots":
+        if search.lower() == "frame":
+            if vFactory.IsFrame(vChild):
+                vFrame = vFactory.ToFrame(vChild)
+                vName = vChild.GetName()
+                ret[vName] = vFrame
+        elif search.lower() == "spots":
             if vFactory.IsSpots(vChild):
                 vSpots = vFactory.ToSpots(vChild)
                 vName = vChild.GetName()
@@ -276,7 +290,7 @@ def isSpot(vImaris,vChild):
         ret = True
     return ret
 
-def SetSurpassObject(vImaris,search="spots",name=None):
+def SetSurpassObject(vImaris,search="spots",name=None,pos=-1):
     vFactory = vImaris.GetFactory()
     vScene = vImaris.GetSurpassScene()
 
@@ -288,13 +302,15 @@ def SetSurpassObject(vImaris,search="spots",name=None):
         vChild = vFactory.CreateSpots()
     elif search.lower() == "surfaces":
         vChild = vFactory.CreateSurfaces()
+    elif search.lower() == "frame":
+        vChild = vFactory.CreateFrame()
     else:
         return None
 
     if name is not None:
         vChild.SetName(name)
 
-    vScene.AddChild(vChild,nChildren)
+    vScene.AddChild(vChild,pos)
     return vChild
 
 def FindChannel(vDataSet,match="(output)",create=True, color=None):
@@ -304,8 +320,8 @@ def FindChannel(vDataSet,match="(output)",create=True, color=None):
     """
 
     ret = -1
+    nc = vDataSet.GetSizeC()
     if match is not None:
-        nc = vDataSet.GetSizeC()
         for i in range(nc):
             name = vDataSet.GetChannelName(i)
             if match in name:
