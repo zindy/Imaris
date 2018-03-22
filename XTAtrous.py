@@ -77,6 +77,7 @@ class MyModule:
     def InitDialog(self):
         #Build the dialog
         self.Dialog=AtrousDialog.AtrousDialog()
+        self.Dialog.set_icon(BridgeLib.GetIcon())
 
         #Get the right icon...
         fn_icon = './Imaris_128.ico'
@@ -214,13 +215,6 @@ class MyModule:
         check_normalise = (arrayvar["check_normalise"] == "on")
         check_delete = False
 
-        #Get these from imaris. Slow, so maybe need to move these to private variables?
-        nt = self.vdataset_nt #self.vDataSet.GetSizeT()
-        nx = self.vdataset_nx #self.vDataSet.GetSizeX()
-        ny = self.vdataset_ny #self.vDataSet.GetSizeY()
-        nz = self.vdataset_nz #self.vDataSet.GetSizeZ()
-        nc = self.vdataset_nc #self.vDataSet.GetSizeC()
-
         #Two things we need to check. Do we need to update both wavelet and threshold
         #Do we need to do one time point or all.
         update_wavelet = False
@@ -250,8 +244,8 @@ class MyModule:
         #Do we need to update any of the wavelet data?
         for channel in channel_indexes:
             if channel not in self.wavelet_data.keys():
-                tps = range(nt)
-                self.wavelet_data[channel] = [None]*nt
+                tps = range(self.vdataset_nt)
+                self.wavelet_data[channel] = [None]*self.vdataset_nt
 
         #Now, this is where we define what the timepoints are. That depends on preview (single timepoint)
         #Updating the preview keyword makes sure we only process one timepoint in preview
@@ -261,7 +255,7 @@ class MyModule:
             tps = [self.vImaris.GetVisibleIndexT()]
         else:
             arrayvar["preview"] = False
-            tps = range(nt)
+            tps = range(self.vdataset_nt)
 
         if self.arrayvar_last is not None and self.arrayvar_last["preview"]==True and preview==False:
             update_wavelet = True
@@ -278,25 +272,14 @@ class MyModule:
 
             for channel in channel_indexes:
                 for tp in tps:
-                    if nz == 1:
-                        lowpass = BridgeLib.GetDataSlice(self.vDataSet,0,channel,tp).astype(np.float32)
+                    if self.vdataset_nz == 1:
+                        dataset = BridgeLib.GetDataSlice(self.vDataSet,0,channel,tp).astype(np.float32)
                     else:
-                        lowpass = BridgeLib.GetDataVolume(self.vDataSet,channel,tp).astype(np.float32)
+                        dataset = BridgeLib.GetDataVolume(self.vDataSet,channel,tp).astype(np.float32)
                     if check_invert:
-                        lowpass = machan - lowpass
+                        dataset = machan - dataset
 
-                    #
-                    # build the atrous_sub array iteratively
-                    #
-                    atrous_sub = np.zeros(lowpass.shape,np.float32)
-                    for i in range(high_scale):
-                        bandpass,lowpass = libatrous.iterscale(lowpass,kernel,i)
-                        if i >= (low_scale-1):
-                            atrous_sub += bandpass
-
-                    if check_lowpass:
-                        atrous_sub += lowpass
-
+                    atrous_sub = libatrous.get_bandpass(dataset,low_scale-1,high_scale-1,kernel,check_lowpass)
                     mi = np.min(atrous_sub)
                     ma = np.max(atrous_sub)
 
@@ -386,7 +369,7 @@ class MyModule:
                     array_out = array_out.astype(BridgeLib.GetType(self.vDataSet))
 
                     #push back
-                    if nz == 1:
+                    if self.vdataset_nz == 1:
                         BridgeLib.SetDataSlice(self.vDataSet,array_out,0,channel_out,tp)
                     else:
                         BridgeLib.SetDataVolume(self.vDataSet,array_out,channel_out,tp)
