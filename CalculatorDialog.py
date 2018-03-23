@@ -34,7 +34,10 @@ class Dialog(TkDialog):
         self.arraychannel = None
 
         self.wm_geometry("500x470")
-        self.title("Channel Calculator XTension - Copyright (c) 2015 Egor Zindy")
+        self.title("Channel Calculator - Copyright (c) 2015 Egor Zindy")
+
+        self.add_menu("File",["Open configuration", "Save configuration","|","Exit"])
+        self.add_menu("Help",["About"])
 
         widget = [ttk.Combobox(self.mainframe, textvariable=self.arrayvar("chana_input"), values=[], exportselection=0, state="readonly"),
                 ttk.Entry(self.mainframe,textvariable=self.arrayvar("factor_a"))]
@@ -83,6 +86,10 @@ class Dialog(TkDialog):
         #we have all the ingredients, now bake the dialog box!
         self.bake(has_live=True, has_cancel=False) #, has_preview=True) #"Calculate")
 
+    def About(self):
+        '''About XTCalculator'''
+        tkMessageBox.showinfo("About XTCalculator", "Source code available from https://github.com/zindy/libatrous/\n\nAuthor: Egor Zindy <egor.zindy@manchester.ac.uk>\nWellcome Centre for Cell-Matrix Research\nUniversity of Manchester (UK)")
+
     def SetDefaults(self):
         #Here you set default values
         self.arrayvar["lothresh"] = 0
@@ -93,15 +100,17 @@ class Dialog(TkDialog):
         self.ctrl_progress["value"]=0
         #self.arrayvar["check_liveview"] = "on"
 
-    def SetChannels(self, channel_list, chana=0, chanb=0):
+    def SetChannels(self, channel_list, chana=None, chanb=None):
         self.SetDefaults()
-
         n_channels = len(channel_list)
+
         self.chana_input['values'] = channel_list
-        self.chana_input.current(chana)
+        if chana is not None:
+            self.chana_input.current(chana)
 
         self.chanb_input['values'] = channel_list
-        self.chanb_input.current(chanb)
+        if chanb is not None:
+            self.chanb_input.current(chanb)
 
     #This is specific to the dialog validation and update.
     #Additionally, the Validate and Update methods are also called.
@@ -116,10 +125,6 @@ class Dialog(TkDialog):
         elif elementname == "hithresh":
             if hithresh < lothresh:
                 arrayvar["lothresh"] = hithresh
-
-    def _Update(self, arrayvar, elementname):
-        if arrayvar[elementname] == 'None':
-            return
 
     def OnCalculate(self,*args):
         '''Calculate button action'''

@@ -224,7 +224,10 @@ def GetVoxelSize(vDataSet):
 def GetChannelDescription(vDataSet,aIndexC):
     """Get the Description string for a channel"""
 
-    s = vDataSet.GetChannelDescription(aIndexC)
+    s = ""
+    if aIndexC >= 0 and aIndexC < vDataSet.GetSizeC():
+        s = vDataSet.GetChannelDescription(aIndexC)
+
     return s
 
 def SetChannelDescription(vDataSet,aIndexC,s):

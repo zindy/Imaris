@@ -45,7 +45,10 @@ import numpy as np
 class MyModule:
     def __init__(self,vImaris):
         self.vImaris = vImaris
-        self.vDataSet = vImaris.GetDataSet()
+
+        #Use a clone
+        self.vDataSet = vImaris.GetDataSet().Clone()
+
 
         #Keep all these in memory
         self.vdataset_nt = self.vDataSet.GetSizeT()
@@ -65,11 +68,7 @@ class MyModule:
     def InitDialog(self):
         #Build the dialog
         self.Dialog=CalculatorDialog.Dialog()
-
-        #Get the right icon...
-        fn_icon = './icons/Imaris_128.ico'
-        if '8.' in self.vImaris.GetVersion(): fn_icon = './icons/Imaris8_128.ico'
-        self.Dialog.wm_iconbitmap(fn_icon)
+        self.Dialog.set_icon(BridgeLib.GetIcon())
 
         self.Dialog.ExitOK = self.ExitOK
         self.Dialog.ExitCancel = self.ExitCancel
@@ -94,13 +93,19 @@ class MyModule:
             self.indexes.append(i)
             self.indexdic[cname] = i
 
-        self.current_chana = 0
-        self.current_chanb = 0
         self.current_tp = self.vImaris.GetVisibleIndexT()
+        self.Dialog.SetChannels(self.names)# ,current_chan_a, current_chan_b)
 
-        self.Dialog.SetChannels(self.names,self.current_chana, self.current_chanb)
-        self.SetThresholdScales()
+        #Check if we already have an output channel and if json info is contained in the description
+        output_channel = self.GetOutputChannel()
+        self.SetThresholdScales(output_channel)
+
+        json = BridgeLib.GetChannelDescription(self.vDataSet, output_channel)
+        if json != "":
+            self.Dialog.arrayvar.set_json(json)
+
         self.Dialog.mainloop()
+
 
     def SetThresholdScales(self,channel=None):
         #The threshold values
@@ -108,8 +113,8 @@ class MyModule:
             michan = channel[0]
             machan = channel[1]
         else:
-            if channel is None:
-                channel = self.current_chana
+            if channel is None or channel < 0:
+                channel = self.Dialog.arrayvar["chana_input"]
 
             michan = self.vDataSet.GetChannelRangeMin(channel)
             machan = self.vDataSet.GetChannelRangeMax(channel)
@@ -127,22 +132,16 @@ class MyModule:
     def Update(self, arrayvar, elementname):
         '''Show the new value in a label'''
 
-        if elementname == "chana_input": 
-            self.current_chana = self.indexdic[arrayvar[elementname]]
-            #print self.current_chana
-
-        if elementname == "chanb_input": 
-            self.current_chanb = self.indexdic[arrayvar[elementname]]
-            #print self.current_chana
-
         #Do we need to preview?
         if (arrayvar["check_liveview"] == "on"):
             self.Preview()
 
-    def GetOutputChannel(self,match="(calc)"):
+    def GetOutputChannel(self,match="(calc)",create=False):
         """Finds the output channel for this plugin.
         If none found, this method will create a new channel and return its new index
         In any case, channel name reflects channels and operation"""
+
+        arrayvar = self.Dialog.arrayvar.get()
 
         ret = -1
         nc = self.vDataSet.GetSizeC()
@@ -152,29 +151,36 @@ class MyModule:
                 ret = i
                 break
 
-        if ret == -1:
+        if ret == -1 and create == True:
             self.vDataSet.SetSizeC(nc+1)
             ret = nc
-            rgba = self.vDataSet.GetChannelColorRGBA(self.current_chana)
-            #print rgba
-            #rgba = rgba ^ 0x00ffffff
-            self.vDataSet.SetChannelColorRGBA(ret,rgba)
 
-        arrayvar = self.Dialog.arrayvar.get()
-        check_inverta = (arrayvar["check_inverta"] == "on")
-        check_invertb = (arrayvar["check_invertb"] == "on")
+            current_chan_a = self.Dialog.arrayvar["chana_input"]
+            current_chan_b = self.Dialog.arrayvar["chanb_input"]
 
-        cname_a = self.vDataSet.GetChannelName(self.current_chana)
-        cname_b = self.vDataSet.GetChannelName(self.current_chanb)
+            try:
+                current_chan_a = self.indexdic[current_chan_a]
+                current_chan_b = self.indexdic[current_chan_b]
+            except:
+                print "channels A or B not available?"
+            else:
+                rgba = self.vDataSet.GetChannelColorRGBA(current_chan_a)
+                self.vDataSet.SetChannelColorRGBA(ret,rgba)
 
-        if check_inverta:
-            cname_a = "!"+cname_a
+            check_inverta = (arrayvar["check_inverta"] == "on")
+            check_invertb = (arrayvar["check_invertb"] == "on")
 
-        if check_invertb:
-            cname_b = "!"+cname_b
+            cname_a = self.vDataSet.GetChannelName(current_chan_a)
+            cname_b = self.vDataSet.GetChannelName(current_chan_b)
 
-        operation_name = arrayvar["operation_type"]
-        self.vDataSet.SetChannelName(ret,"%s(%s,%s) %s" % (operation_name,cname_a,cname_b,match))
+            if check_inverta:
+                cname_a = "!"+cname_a
+
+            if check_invertb:
+                cname_b = "!"+cname_b
+
+            operation_name = arrayvar["operation_type"]
+            self.vDataSet.SetChannelName(ret,"%s(%s,%s) %s" % (operation_name,cname_a,cname_b,match))
 
         return ret
 
@@ -195,6 +201,9 @@ class MyModule:
         check_invertb = (arrayvar["check_invertb"] == "on")
         check_threshold = (arrayvar["check_threshold"] == "on")
         check_normalise = (arrayvar["check_normalise"] == "on")
+
+        current_chan_a = self.indexdic[arrayvar["chana_input"]]
+        current_chan_b = self.indexdic[arrayvar["chanb_input"]]
 
         try:
             factor_a = float(arrayvar["factor_a"])
@@ -246,7 +255,11 @@ class MyModule:
                      break
 
         #The output channel is created if needed. In any case, the name will be updated (if needed)
-        channel_out = self.GetOutputChannel()
+        channel_out = self.GetOutputChannel(create=True)
+
+        #Update the channel description...
+        print "Updating?"
+        BridgeLib.SetChannelDescription(self.vDataSet,channel_out,self.Dialog.arrayvar.get_json())
 
         if preview == False:
             channel_visibility = []
@@ -270,11 +283,11 @@ class MyModule:
             matp = None
             for tp in tps:
                 if nz == 1:
-                    array_a = BridgeLib.GetDataSlice(self.vDataSet,0,self.current_chana,tp).astype(float)
-                    array_b = BridgeLib.GetDataSlice(self.vDataSet,0,self.current_chanb,tp).astype(float)
+                    array_a = BridgeLib.GetDataSlice(self.vDataSet,0,current_chan_a,tp).astype(float)
+                    array_b = BridgeLib.GetDataSlice(self.vDataSet,0,current_chan_b,tp).astype(float)
                 else:
-                    array_a = BridgeLib.GetDataVolume(self.vDataSet,self.current_chana,tp).astype(float)
-                    array_b = BridgeLib.GetDataVolume(self.vDataSet,self.current_chanb,tp).astype(float)
+                    array_a = BridgeLib.GetDataVolume(self.vDataSet,current_chan_a,tp).astype(float)
+                    array_b = BridgeLib.GetDataVolume(self.vDataSet,current_chan_b,tp).astype(float)
 
                 if check_inverta:
                     array_a = machan - array_a
@@ -380,6 +393,7 @@ class MyModule:
         #Keeping the arrayvar values
         self.arrayvar_last = arrayvar
         self.Dialog.ctrl_progress["value"]=0.
+        self.vImaris.SetDataSet(self.vDataSet)
 
     def Preview(self):
         self.Calculate(preview=True)
