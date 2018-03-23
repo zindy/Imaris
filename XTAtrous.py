@@ -90,12 +90,11 @@ class MyModule:
         self.Dialog.Preview = self.Preview
         self.Dialog.Calculate = self.Calculate
 
-        nc = self.vdataset_nc
         self.names = []
         self.indexes = []
         self.indexdic = {}
 
-        for i in range(nc):
+        for i in range(self.vdataset_nc):
             cname = self.vDataSet.GetChannelName(i)
             if ' (filtered)' in cname:
                 continue
@@ -183,7 +182,6 @@ class MyModule:
         if create == True and ret == -1:
             self.vDataSet.SetSizeC(nc+1)
             ret = nc
-            print(nc)
             self.vDataSet.SetChannelName(ret,cname+" (filtered)")
             rgba = self.vDataSet.GetChannelColorRGBA(cindex)
             #rgba = rgba ^ 0x00ffffff
@@ -309,7 +307,7 @@ class MyModule:
             channel_visibility = []
 
             if preview == False:
-                for i in range(nc):
+                for i in range(self.vdataset_nc):
                     channel_visibility.append(self.vImaris.GetChannelVisibility(i))
                     self.vImaris.SetChannelVisibility(i,0)
 
@@ -360,10 +358,12 @@ class MyModule:
                         array_out[array_out > ma] = ma
 
                     #do normalisation
+                    mi = np.min(array_out)
+                    ma = np.max(array_out)
                     if check_normalise:
-                        mi = np.min(array_out)
-                        ma = np.max(array_out)
                         array_out = (machan-michan)*(array_out-mi)/(ma-mi)+michan
+                        mi = michan
+                        ma = machan
 
                     #convert the data back to the original format...
                     array_out = array_out.astype(BridgeLib.GetType(self.vDataSet))
@@ -373,14 +373,15 @@ class MyModule:
                         BridgeLib.SetDataSlice(self.vDataSet,array_out,0,channel_out,tp)
                     else:
                         BridgeLib.SetDataVolume(self.vDataSet,array_out,channel_out,tp)
-                    #self.vDataSet.SetChannelRange(channel_out,michan,machan)
+
+                    self.vDataSet.SetChannelRange(channel_out,int(round(mi)),int(round(ma)))
 
                     self.Dialog.ctrl_progress["value"]=(100.*(tp/float(len(tps)*len(channel_indexes))))
                     self.Dialog.ctrl_progress.update()
                     self.vImaris.SetDataSet(self.vDataSet)
 
             if preview == False:
-                for i in range(nc):
+                for i in range(self.vdataset_nc):
                     self.vImaris.SetChannelVisibility(i,channel_visibility[i])
 
             time.sleep(0.2)
