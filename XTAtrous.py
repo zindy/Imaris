@@ -79,11 +79,6 @@ class MyModule:
         self.Dialog=AtrousDialog.AtrousDialog()
         self.Dialog.set_icon(BridgeLib.GetIcon())
 
-        #Get the right icon...
-        fn_icon = './Imaris_128.ico'
-        if '8.' in self.vImaris.GetVersion(): fn_icon = './Imaris8_128.ico'
-        #self.Dialog.wm_iconbitmap(fn_icon)
-
         self.Dialog.ExitOK = self.ExitOK
         self.Dialog.ExitCancel = self.ExitCancel
         self.Dialog.Update = self.Update
