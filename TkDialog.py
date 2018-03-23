@@ -658,7 +658,9 @@ class TkDialog(tk.Tk):
 
     #At a minimum, these are connected menu items and functions.
     def _Update(self, arrayvar, elementname):
-        '''Show the new value in a label'''
+        if arrayvar[elementname] == 'None':
+            return
+
         if elementname == "menuitem":
             if arrayvar[elementname] == "File/Open configuration":
                 self.OpenConfig()
