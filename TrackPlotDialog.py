@@ -22,6 +22,7 @@
 
 import Tkinter as tk
 import ttk
+import tkMessageBox
 from TkDialog import TkDialog
 
 try:
@@ -52,6 +53,10 @@ class TrackPlotDialog(TkDialog):
         self.wm_geometry("700x800")
         self.title("Tracks plotter - Copyright (c) 2015 Egor Zindy")
 
+        self.add_menu("File",["Update objects", "Open configuration", "Save configuration","|","Exit"])
+        self.add_menu("Help",["About"])
+
+
         #widget = [ttk.Combobox(self.mainframe, textvariable=self.arrayvar("objects"), values=[], exportselection=0, state="readonly"),
         #        ttk.Combobox(self.mainframe, textvariable=self.arrayvar("cc_type"), values=list_colourcoding, exportselection=0, state="readonly")]
         #self.add_control("Object and coding",widget, "ctrl_objects")
@@ -59,11 +64,6 @@ class TrackPlotDialog(TkDialog):
         widget = ttk.Combobox(self.mainframe, textvariable=self.arrayvar("objects"), values=[], exportselection=0, state="readonly")
         tick = self.arrayvar("check_selected", "off"), "Selected"
         self.add_control("Spot object",widget, name="ctrl_objects", tick=tick)
-        widget = [ttk.Button(self.mainframe, text="Update objects", command=self.OnUpdateObjects, name="btn0"),
-                ttk.Button(self.mainframe, text="Save settings", command=self.OnSaveSettings, name="btn1"),
-                ttk.Button(self.mainframe, text="Load settings", command=self.OnLoadSettings, name="btn2")]
-        self.add_control("",widget)
-
         if is3D:
             widget = ttk.Combobox(self.mainframe, textvariable=self.arrayvar("plot_type"), values=list_plots, exportselection=0, state="readonly")
             self.add_control("Plot type",widget, name="ctrl_plots", tick=tick)
@@ -123,6 +123,10 @@ class TrackPlotDialog(TkDialog):
         #we have all the ingredients, now bake the dialog box!
         self.bake(has_cancel=False) #, has_preview=True) #"Calculate")
 
+    def About(self):
+        '''About XTTrackPlot'''
+        tkMessageBox.showinfo("About XTTrackPlot", "Source code available from https://github.com/zindy/libatrous/\n\nAuthor: Egor Zindy <egor.zindy@manchester.ac.uk>\nWellcome Centre for Cell-Matrix Research\nUniversity of Manchester (UK)")
+
     def SetDefaults(self):
         #Here you set default values
         self.arrayvar["cc_type"] = list_colourcoding[0]
@@ -135,38 +139,11 @@ class TrackPlotDialog(TkDialog):
         self.ctrl_objects['values'] = object_list
         self.ctrl_objects.current(selected)
 
-    #This is specific to the dialog validation and update.
-    #Additionally, the Validate and Update methods are also called.
-    def _Validate(self, arrayvar, elementname):
-        pass
-
-    def _Update(self, arrayvar, elementname):
-        if arrayvar[elementname] == 'None':
-            return
-
-    def OnLoadSettings(self,*args):
-        self.LoadSettings()
-
-    def LoadSettings(self):
-        print "Loading some settings..."
-
-    def OnSaveSettings(self,*args):
-        self.SaveSettings()
-
-    def SaveSettings(self):
-        print "Saving some settings..."
-
     def OnSaveFigure(self,*args):
         self.SaveFigure()
 
     def SaveFigure(self):
         print "Saving the figure..."
-
-    def OnUpdateObjects(self,*args):
-        self.UpdateObjects(update=True)
-
-    def UpdateObjects(self, *args, **kwargs):
-        print "Updating the objects..."
 
 if __name__ == "__main__":
     app=TrackPlotDialog(is3D=True)

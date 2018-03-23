@@ -1,9 +1,7 @@
+# -*- coding: utf-8 -*-
 #
 #
 #  TrackPlot Python XTension  
-#
-#  Copyright (C) 2014, Egor Zindy <egor.zindy@manchester.ac.uk>
-#  BSD-style copyright and disclaimer apply
 #
 #    <CustomTools>
 #      <Menu name = "Python plugins">
@@ -14,26 +12,21 @@
 #    </CustomTools>
 #
 # 
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-#  of this software and associated documentation files (the "Software"), to deal
-#  in the Software without restriction, including without limitation the rights
-#  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-#  copies of the Software, and to permit persons to whom the Software is
-#  furnished to do so, subject to the following conditions:
-# 
-# The above copyright notice and this permission notice shall be included in
-#  all copies or substantial portions of the Software.
-# 
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-#  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-#  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-#  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-#  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-#  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-#  THE SOFTWARE.
+# Copyright (c) 2015 Egor Zindy <egor.zindy@manchester.ac.uk>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # vim: set ts=4 sts=4 sw=4 expandtab smartindent:
-
 
 import matplotlib as mpl
 from mpl_toolkits.mplot3d import Axes3D
@@ -239,15 +232,10 @@ class MyModule:
     def InitDialog(self):
         #Build the dialog
         self.Dialog=TrackPlotDialog.TrackPlotDialog(self.is3D)
+        self.Dialog.set_icon(BridgeLib.GetIcon())
 
         self.Dialog.Save = self.SaveFigure
-        self.Dialog.UpdateObjects = self.UpdateObjects
         self.arrayvar_last = []
-
-        #Get the right icon...
-        fn_icon = './icons/Imaris_128.ico'
-        if "8." in self.vImaris.GetVersion(): fn_icon = './icons/Imaris8_128.ico'
-        self.Dialog.wm_iconbitmap(fn_icon)
 
         self.Dialog.ExitOK = self.ExitOK
         self.Dialog.ExitCancel = self.ExitCancel
@@ -553,12 +541,6 @@ class MyModule:
         if update:
             self.Update(self.Dialog.arrayvar,"objects")
 
-    def LoadSettings(self):
-        self.Update(self.Dialog.arrayvar,"btn1")
-
-    def SaveSettings(self):
-        self.Update(self.Dialog.arrayvar,"btn2")
-
     def SaveFigure(self):
         self.Update(self.Dialog.arrayvar,"btn3")
 
@@ -570,6 +552,10 @@ class MyModule:
         replot = False
 
         fig = self.Dialog.figure
+
+        if elementname == "menuitem":
+            if arrayvar[elementname] == "File/Update objects":
+                self.UpdateObjects(update=True)
 
         if elementname == "btn3":
             file_path = tkFileDialog.asksaveasfilename(
@@ -634,7 +620,7 @@ class MyModule:
                 self.Dialog.arrayvar["zmin"] = zmi
                 self.Dialog.arrayvar["zmax"] = zma
 
-        if elementname == "objects" or elementname == "check_selected" or elementname == "check_defaultsize" or ((elementname == "xsize" or elementname == "ysize") and not useDefault) or elementname == "btn1":
+        if elementname == "objects" or elementname == "check_selected" or elementname == "check_defaultsize" or ((elementname == "xsize" or elementname == "ysize") and not useDefault):
             tracks,mi,ma = self.GetTracksAndRange()
             self.tracks = tracks
             if mi is None: mi,ma = (0,0,0), (1,1,1)
@@ -733,7 +719,6 @@ class MyModule:
             if self.Dialog.arrayvar["yauto"] == "off":
                 replot = True
 
-        print elementname
         if elementname == "plot_type":
             print "plot type has changed..."
             replot = True
