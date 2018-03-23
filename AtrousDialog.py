@@ -107,7 +107,7 @@ class AtrousDialog(TkDialog):
 
     def About(self):
         '''About XTAtrous'''
-        tkMessageBox.showinfo("About XTAtrous", "\"A trous\" Wavelet analysis extension for Imaris\n\nPlease consider citing this software in your paper if you use it.\nSource code available from https://github.com/zindy/libatrous/\n\nAuthor: Egor Zindy <egor.zindy@manchester.ac.uk>\nWellcome Centre for Cell-Matrix Research")
+        tkMessageBox.showinfo("About XTAtrous", "\"A trous\" Wavelet analysis extension for Imaris\n\nPlease consider citing this software in your paper if you use it.\nSource code available from https://github.com/zindy/libatrous/\n\nAuthor: Egor Zindy <egor.zindy@manchester.ac.uk>\nWellcome Centre for Cell-Matrix Research\nUniversity of Manchester (UK)")
 
     def SetDefaults(self):
         #Here you set default values
