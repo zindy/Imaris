@@ -345,6 +345,17 @@ def SetSurpassObject(vImaris,search="spots",name=None,pos=-1):
     vScene.AddChild(vChild,pos)
     return vChild
 
+def GetChannelNames(vDataSet):
+    """Return the names of all the channels in vDataSet
+    """
+    nc = vDataSet.GetSizeC()
+    ret = []
+    for i in range(nc):
+        name = vDataSet.GetChannelName(i)
+        ret.append(name)
+
+    return ret
+
 def FindChannel(vDataSet,match="(output)",create=True, color=None):
     """Finds a channel from a substring. If not found then create a new one (if create true)
     If none found and create is True, this method will create a new channel and return

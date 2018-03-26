@@ -28,6 +28,7 @@
 #
 # vim: set ts=4 sts=4 sw=4 expandtab smartindent:
 
+import hotswap
 import matplotlib as mpl
 from mpl_toolkits.mplot3d import Axes3D
 
@@ -49,7 +50,57 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import numpy as np
 import sys, traceback
+import matplotlib.colors as colors
+import matplotlib.cm as cm
 
+
+
+###########################################################################
+## Matplotlib colored lines
+## https://stackoverflow.com/questions/36074455/python-matplotlib-with-a-line-color-gradient-and-colorbar
+###########################################################################
+
+def colorline(
+        x, y, z=None, cmap='copper', norm=plt.Normalize(0.0, 1.0),
+        linewidth=3, alpha=1.0):
+    """
+    http://nbviewer.ipython.org/github/dpsanders/matplotlib-examples/blob/master/colorline.ipynb
+    http://matplotlib.org/examples/pylab_examples/multicolored_line.html
+    Plot a colored line with coordinates x and y
+    Optionally specify colors in the array z
+    Optionally specify a colormap, a norm function and a line width
+    """
+
+    # Default colors equally spaced on [0,1]:
+    if z is None:
+        z = np.linspace(0.0, 1.0, len(x))
+
+    # Special case if a single number:
+    # to check for numerical input -- this is a hack
+    if not hasattr(z, "__iter__"):
+        z = np.array([z])
+
+    z = np.asarray(z)
+
+    segments = make_segments(x, y)
+    lc = mcoll.LineCollection(segments, array=z, cmap=cmap, norm=norm,
+                              linewidth=linewidth, alpha=alpha)
+
+    ax = plt.gca()
+    ax.add_collection(lc)
+
+    return lc
+
+def make_segments(x, y):
+    """
+    Create list of line segments from x and y coordinates, in the correct format
+    for LineCollection: an array of the form numlines x (points per line) x 2 (x
+    and y) array
+    """
+
+    points = np.array([x, y]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+    return segments
 
 ###########################################################################
 ## Matplotlib centred spines
@@ -234,7 +285,7 @@ class MyModule:
         self.Dialog=TrackPlotDialog.TrackPlotDialog(self.is3D)
         self.Dialog.set_icon(BridgeLib.GetIcon())
 
-        self.Dialog.Save = self.SaveFigure
+        self.Dialog.SaveFigure = self.SaveFigure
         self.arrayvar_last = []
 
         self.Dialog.ExitOK = self.ExitOK
@@ -488,9 +539,45 @@ class MyModule:
 
         else:
             ax1 = fig.add_axes([0.1, 0.1, 0.85, 0.85])
-            for track in self.tracks:
-                ax1.plot(track[:,0],track[:,1],c='black')
-                ax1.plot(track[-1,0],track[-1,1],'o',c='black')
+
+            if self.Dialog.arrayvar["check_cc"] == "off":
+                for track in self.tracks:
+                    ax1.plot(track[:,0],track[:,1],c='black')
+                    ax1.plot(track[-1,0],track[-1,1],'o',c='black')
+            else:
+                if "Ar1" in self.Dialog.arrayvar["cc_type"]:
+                    print "TODO! Not sure how to colour code the Ar1 (auto-regressive) parameters. Track to Track variation? Which one gets colour coded?"
+                    return
+
+                wh = self.stats["Factor"] == self.Dialog.arrayvar["cc_type"]
+
+                if "Intensity" in self.Dialog.arrayvar["cc_type"]:
+                    channel = str(self.list_channels.index(self.Dialog.arrayvar["cc_channel"])+1)
+                    wh = np.bitwise_and(wh, self.stats["Channel"] == channel)
+                    print channel
+                category = self.stats[wh]["Category"][0]
+                values = self.stats[wh]["Values"]
+
+                cmap = plt.get_cmap('jet') 
+                norm = colors.Normalize(vmin=np.min(values), vmax=np.max(values))
+                scalarMap = cm.ScalarMappable(norm=norm, cmap=cmap)
+                scalarMap.set_array([])
+
+                if category == "Track":
+                    ntracks = len(self.tracks)
+                    for i in range(ntracks):
+                        track = self.tracks[i]
+                        col = scalarMap.to_rgba(values[i])
+                        ax1.plot(track[:,0],track[:,1],c=col)
+                        p = ax1.plot(track[-1,0],track[-1,1],'o',c=col,markeredgecolor='none')
+
+
+                    divider = make_axes_locatable(ax1)
+                    cax = divider.append_axes("right", size="5%", pad=0.05)
+                    #ticks = np.linspace(np.floor(np.min(values)), np.ceil(np.max(values)), 11),
+                    cb = fig.colorbar(scalarMap,cax=cax)
+                    cb.set_label(self.Dialog.arrayvar["cc_type"])
+
             ax1.set_xlabel('X axis [$\mu$m]')
             ax1.set_ylabel('Y axis [$\mu$m]')
             txt = ax1.text(0.01, 0.97, 'Number of tracks: %d' % len(self.tracks), transform=ax1.transAxes,fontsize=12,backgroundcolor='w')
@@ -532,6 +619,7 @@ class MyModule:
             #Change the dropdown menu and select default
             self.Dialog.SetObjects(self.object_names,self.current_object)
 
+
             #Reset sizes
             self.Dialog.arrayvar["xsize"] = self._size[0]
             self.Dialog.arrayvar["ysize"] = self._size[1]
@@ -572,6 +660,8 @@ class MyModule:
                 elementname = None
             else:
                 fig = plt.figure(figsize=(10,10), dpi=100)
+                #plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
+                replot = True
 
         useDefault = (self.Dialog.arrayvar["check_defaultsize"] == "on")
         useTitle = (self.Dialog.arrayvar["check_title"] == "on")
@@ -579,6 +669,55 @@ class MyModule:
         if elementname == "objects":
             self.current_object = self.indexdic[arrayvar[elementname]]
             self.positions = None
+
+            #The statistics for colour coding
+            vDataItem = self.SurpassObjects[arrayvar[elementname]]
+            vStatisticValues = vDataItem.GetStatistics()
+
+            #What have we selected?
+            list_stats = list(set(vStatisticValues.mNames))
+            list_stats.sort()
+
+            selected = self.Dialog.arrayvar["cc_type"]
+            if selected in list_stats:
+                selected = list_stats.index(selected)
+            else:
+                selected = 0
+
+            self.Dialog.ctrl_type['values'] = list_stats
+            self.Dialog.ctrl_type.current(selected)
+            self.list_stats = list_stats
+
+            list_channels = BridgeLib.GetChannelNames(self.vDataSet)
+            list_channels.sort()
+
+            selected = self.Dialog.arrayvar["cc_channel"]
+            if selected in list_stats:
+                selected = list_stats.index(selected)
+            else:
+                selected = 0
+
+            self.Dialog.ctrl_channel['values'] = list_channels
+            self.Dialog.ctrl_channel.current(selected)
+            self.list_channels = list_channels
+
+            self.change_cc_state()
+
+            # Build the stats structured array
+            names = ['Factor'] + vStatisticValues.mFactorNames + ['Values']
+            dat_types = {
+                'names': names,
+                'formats': ['a30']*(len(names)-1)+['f']
+            }
+
+            stats = np.zeros((len(vStatisticValues.mNames),),dtype=dat_types)
+            stats['Factor']=vStatisticValues.mNames
+            stats['Values']=vStatisticValues.mValues
+            for i in range(len(vStatisticValues.mFactorNames)):
+                stats[vStatisticValues.mFactorNames[i]] = vStatisticValues.mFactors[i]
+
+            self.stats = stats
+            replot = True
 
         if elementname == "xsize" and not useDefault:
             xf,yf,zf = self.GetSizeFactor()
@@ -637,6 +776,14 @@ class MyModule:
                 self.Dialog.arrayvar["zmin"] = mi[2]
                 self.Dialog.arrayvar["zmax"] = ma[2]
             replot = True
+        elif elementname == "check_cc":
+            self.change_cc_state()
+            replot = True
+        elif elementname == "cc_type":
+            replot = True
+        elif elementname == "cc_channel":
+            replot = True
+
 
         if elementname == "xauto":
             if self.Dialog.arrayvar["xauto"] == "on":
@@ -727,6 +874,13 @@ class MyModule:
             print "title has changed..."
             replot = True
 
+        if elementname == "cc_type":
+            if "Intensity" in self.Dialog.arrayvar["cc_type"]:
+                state = "readonly"
+            else:
+                state = "disabled"
+            self.Dialog.ctrl_channel.config(state=state)
+
         if replot:
             print "replotting..."
             xmi = self._range[0][0]
@@ -745,14 +899,28 @@ class MyModule:
             if self.is3D and ((self.Dialog.arrayvar["zauto"] == "off") and hasattr(self,"_zrange")):
                 zmi = float(self._zrange[0])
                 zma = float(self._zrange[1])
+
             self.Plot(fig,[xmi,xma],[ymi,yma],[zmi,zma])
 
-        if elementname == "btn1":
+
+        print elementname
+        if elementname == "btn3":
+            print "saving?"
             fig.savefig(file_path, bbox_inches='tight')
             del fig
 
         self.arrayvar_last = arrayvar
         self.Dialog.config(cursor="")
+
+    def change_cc_state(self):
+        state = "disabled"
+        if self.Dialog.arrayvar["check_cc"] == "on":
+            state = "readonly"
+        self.Dialog.ctrl_type.config(state=state)
+
+        if not "Intensity" in self.Dialog.arrayvar["cc_type"]:
+            state = "disabled"
+        self.Dialog.ctrl_channel.config(state=state)
 
     def ExitOK(self):
         '''OK button action'''
@@ -780,6 +948,10 @@ def XTTrackPlot(aImarisId):
     if vDataSet is None:
         print "No data available!"
         exit(1)
+
+    #The hotswap module watcher...
+    _watcher = hotswap.ModuleWatcher()
+    _watcher.run()
 
     aModule = MyModule(vImaris)
 

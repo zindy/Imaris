@@ -532,8 +532,12 @@ class TkDialog(tk.Tk):
                 widget.grid(column=0, row=n_widgets+1, sticky=(tk.S,tk.W), padx=0)
 
             if has_cancel:
+                c = self._spanwidgets
+                if has_ok == False:
+                    c += 1
+
                 widget = ttk.Button(self.mainframe,text="Cancel", command=self.OnCancel)
-                widget.grid(column=self._spanwidgets, row=n_widgets+1, sticky=(tk.S,tk.E))
+                widget.grid(column=c, row=n_widgets+1, sticky=(tk.S,tk.E))
 
             if has_ok:
                 widget = ttk.Button(self.mainframe,text="OK", command=self.OnOK)

@@ -37,7 +37,6 @@ except:
 
 
 #It's convenient to make the combobox choices global lists.
-list_colourcoding = ["No colour coding","Start time","Length","Speed"]
 list_plots = ["3D plot", "Projection"]
 
 ###########################################################################
@@ -70,8 +69,11 @@ class TrackPlotDialog(TkDialog):
 
 
 
-        #widget = ttk.Combobox(self.mainframe, textvariable=self.arrayvar("cc_type"), values=list_colourcoding, exportselection=0, state="readonly")
-        #self.add_control("Colour coding",widget, name="ctrl_colourcoding")
+        self.ctrl_type = w1 = ttk.Combobox(self.mainframe, textvariable=self.arrayvar("cc_type"), values=[], exportselection=0, state="readonly")
+        self.ctrl_channel = w2 = ttk.Combobox(self.mainframe, textvariable=self.arrayvar("cc_channel"), values=[], exportselection=0, state="readonly")
+        widget = [w1, w2]
+        tick = self.arrayvar("check_cc", "off"), "Use"
+        self.add_control("Colour coding",widget, tick=tick)
 
         widget = ttk.Entry(self.mainframe,textvariable=self.arrayvar("title"))
         tick = self.arrayvar("check_title", "off"), "Display"
@@ -129,7 +131,6 @@ class TrackPlotDialog(TkDialog):
 
     def SetDefaults(self):
         #Here you set default values
-        self.arrayvar["cc_type"] = list_colourcoding[0]
         self.arrayvar["plot_type"] = list_plots[0]
 
     def SetObjects(self, object_list, selected=0):
