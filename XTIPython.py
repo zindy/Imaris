@@ -63,12 +63,14 @@ import sys
 import hotswap
 import ImarisLib
 import BridgeLib
+import tempfile
 
 from notebook.notebookapp import main
 from IPython import get_ipython
 from IPython.core.magic import (Magics, magics_class, line_magic, cell_magic, line_cell_magic)
 from IPython.testing.skipdoctest import skip_doctest
 from IPython.utils.py3compat import unicode_to_str
+from IPython.display import Image
 import numpy as np
 import webbrowser
 
@@ -95,6 +97,19 @@ class ImarisMagics(Magics):
         shell.user_ns["vDataSet"]=self.vDataSet
         shell.user_ns["vScene"]=self.vImaris.GetSurpassScene()
         shell.user_ns["vFactory"]=self.vImaris.GetFactory()
+
+    @skip_doctest
+    @line_magic
+    def imaris_screenshot(self, line):
+        '''Line-level magic that takes a screenshot of Imaris.
+        '''
+
+        f = tempfile.NamedTemporaryFile(delete=False,suffix='.png')
+        self.vImaris.SaveSnapShot(f.name)
+        i = Image(filename=f.name)
+        f.close()
+        os.unlink(f.name)
+        return i
 
     @skip_doctest
     @line_magic
