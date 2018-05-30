@@ -69,6 +69,9 @@ class MyModule:
 
         self.wavelet_data = None
 
+        #The raw data (might take some time to load, so keep it in memory)
+        self.raw_data = None
+
         #For now, only save the parameters for the current channel. When changing channel, this data is erased.
         self.arrayvar_last = None
 
@@ -224,6 +227,7 @@ class MyModule:
             update_wavelet = True
             update_threshold = True
             self.wavelet_data = {}
+            self.raw_data = {}
 
         else:
             changed = set(self.GetUpdated(self.arrayvar_last, arrayvar))
@@ -238,6 +242,9 @@ class MyModule:
         for channel in channel_indexes:
             if channel not in self.wavelet_data.keys():
                 tps = range(self.vdataset_nt)
+
+                #Do the same thing both for the wavelet data and the raw data
+                self.raw_data[channel] = [None]*self.vdataset_nt
                 self.wavelet_data[channel] = [None]*self.vdataset_nt
 
         #Now, this is where we define what the timepoints are. That depends on preview (single timepoint)
@@ -259,18 +266,20 @@ class MyModule:
         ############################################################
         if update_wavelet:
             miarr,maarr = None, None
-            michan,machan = BridgeLib.GetRange(self.vDataSet)
-            #michan = self.vDataSet.GetChannelRangeMin(channel)
-            #machan = self.vDataSet.GetChannelRangeMax(channel)
-
             for channel in channel_indexes:
+                michan,machan = BridgeLib.GetRange(self.vDataSet,channel)
                 for tp in tps:
-                    if self.vdataset_nz == 1:
-                        dataset = BridgeLib.GetDataSlice(self.vDataSet,0,channel,tp).astype(np.float32)
+                    if self.raw_data[channel][tp] is not None:
+                        dataset = self.raw_data[channel][tp]
                     else:
-                        dataset = BridgeLib.GetDataVolume(self.vDataSet,channel,tp).astype(np.float32)
-                    if check_invert:
-                        dataset = machan - dataset
+                        if self.vdataset_nz == 1:
+                            dataset = BridgeLib.GetDataSlice(self.vDataSet,0,channel,tp).astype(np.float32)
+                        else:
+                            dataset = BridgeLib.GetDataVolume(self.vDataSet,channel,tp).astype(np.float32)
+                        if check_invert:
+                            dataset = machan - dataset
+
+                        self.raw_data[channel][tp] = dataset
 
                     atrous_sub = libatrous.get_bandpass(dataset,low_scale-1,high_scale-1,kernel,check_lowpass)
                     mi = np.min(atrous_sub)
@@ -296,9 +305,6 @@ class MyModule:
         # Update the threshold if needed
         ############################################################
         if update_threshold:
-            michan,machan = BridgeLib.GetRange(self.vDataSet)
-            #michan = self.vDataSet.GetChannelRangeMin(channel)
-            #machan = self.vDataSet.GetChannelRangeMax(channel)
             channel_visibility = []
 
             if preview == False:
@@ -308,13 +314,11 @@ class MyModule:
 
             i = 0
             for channel in channel_indexes:
+                michan,machan = BridgeLib.GetRange(self.vDataSet,channel)
                 channel_out = self.GetMatchedChannel(channel)
 
                 #Update the channel description...
                 BridgeLib.SetChannelDescription(self.vDataSet,channel_out,self.Dialog.arrayvar.get_json())
-
-                #michan = self.vDataSet.GetChannelRangeMin(channel)
-                #machan = self.vDataSet.GetChannelRangeMax(channel)
 
                 for tp in tps:
                     array_out  = self.wavelet_data[channel][tp].copy()
