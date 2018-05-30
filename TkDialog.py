@@ -358,6 +358,10 @@ class TkDialog(tk.Tk):
         self._Update(self.arrayvar,"menuitem")
         self.Update(self.arrayvar,"menuitem")
 
+    def OnButton(self,name):
+        self._Update(self.arrayvar,name)
+        self.Update(self.arrayvar,name)
+
     def add_control(self,label="", widget=None, name=None, tick=None,row=None,tooltip=None,tooltip1=None):
         if widget is None:
             return
@@ -414,6 +418,14 @@ class TkDialog(tk.Tk):
             hasCanvas = False
             widget.grid_configure(sticky=(tk.E,tk.W))
             if widget.winfo_class() == "Frame": padx,pady = 0,0
+            if widget.winfo_class() == "TButton":
+                #We want to use our Update method, so here's a chance to add a default callback
+                if widget.cget("command") == "":
+                    def callback():
+                        #Recipe from https://stackoverflow.com/questions/41291779/how-to-get-widget-name-in-event
+                        name = str(widget).split(".")[-1]
+                        self.OnButton(name)
+                    widget.configure(command=callback)
 
         widget.grid_configure(padx=padx,pady=pady)
 
@@ -602,6 +614,10 @@ class TkDialog(tk.Tk):
     def _on_exit(self):
         self.Quit()
 
+    def default_json(self):
+        #get a default json name for that particular dialog.
+        return self.__class__.__name__.lower().replace("dialog","")+".conf"
+
     def OnTrace(self, varname, elementname, mode):
         '''The callback for monitoring widget changes'''
 
@@ -681,13 +697,22 @@ class TkDialog(tk.Tk):
         print(s)
 
     def OpenConfig(self):
+        if self.arrayvar["fn_json"] is None or self.arrayvar["fn_json"] == "":
+            d,f = "",""
+        else:
+            d,f = os.path.split(self.arrayvar["fn_json"])
+
         file_path = tkFileDialog.askopenfilename(
+                initialdir = d,
+                initialfile = f,
                 defaultextension=".conf", filetypes = [ 
                     ("Config file",'*.conf')],
                 parent=self, title="Set parameters from a configuration file")
 
         if not os.path.exists(file_path):
             return
+
+        self.arrayvar["fn_json"] = file_path
 
         s = open(file_path).read()
         try:
@@ -697,13 +722,22 @@ class TkDialog(tk.Tk):
 
 
     def SaveConfig(self):
+        if self.arrayvar["fn_json"] == "":
+            d,f = "",""
+        else:
+            d,f = os.path.split(self.arrayvar["fn_json"])
+
         file_path = tkFileDialog.asksaveasfilename(
+                initialdir = d,
+                initialfile = f,
                 defaultextension=".conf", filetypes = [ 
                     ("Config file",'*.conf')],
                 parent=self, title="Save the current settings")
 
         if file_path == "":
             return
+
+        self.arrayvar["fn_json"] = file_path
 
         s = self.arrayvar.get_json()
         f = open(file_path,"w")
