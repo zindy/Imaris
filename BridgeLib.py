@@ -16,7 +16,7 @@
 #
 # vim: set ts=4 sts=4 sw=4 expandtab smartindent:
 
-import numpy
+import numpy as np
 import ImarisLib
 import Ice
 import sys
@@ -27,7 +27,7 @@ import zlib
 _M_Imaris = Ice.openModule('Imaris')
 tType = _M_Imaris.tType
 
-imaris_types = {'eTypeUInt8':numpy.uint8,'eTypeUInt16':numpy.uint16,'eTypeFloat':numpy.float32}
+imaris_types = {'eTypeUInt8':np.uint8,'eTypeUInt16':np.uint16,'eTypeFloat':np.float32}
 
 DEBUG = False
 
@@ -74,23 +74,31 @@ def GetIcon(old=False):
     return s.decode('base64').decode('zlib')
     
 
-def GetRange(vDataSet):
+def GetRange(vDataSet,channel=None):
     """Get the pixel intensity range of the dataset"""
     nc = vDataSet.GetSizeC()
     maset = 0
-    for i in range(nc):
+    if channel is None:
+        channels = range(nc)
+    else:
+        channels = [channel]
+
+    for i in channels:
         ma = vDataSet.GetChannelRangeMax(i)
         if ma > maset:
             maset = ma
-    maset = numpy.power(2,numpy.ceil(numpy.log2(maset)))-1
+
+    maset = np.power(2,np.ceil(np.log2(maset)))-1
     return 0,maset
 
-    #dtype = GetType(vDataSet)
-    #if dtype == numpy.uint8 or dtype == numpy.uint16:
-    #    info = numpy.iinfo(dtype)
-    #else:
-    #    info = numpy.finfo(dtype)
-    #return info.min,info.max
+def GetTotalRange(vDataSet):
+    """Get the maximum range that can be fit for the type of a given dataset"""
+    dtype = GetType(vDataSet)
+    if dtype == np.uint8 or dtype == np.uint16:
+        info = np.iinfo(dtype)
+    else:
+        info = np.finfo(dtype)
+    return info.min,info.max
 
 def GetTimepoint(vDataSet, tpi):
     dt = vDataSet.GetTimePoint(tpi)[:-4]
@@ -102,7 +110,7 @@ def GetTimepoints(vDataSet,tpis):
 
     t0 = GetTimepoint(vDataSet,0)
     nt = len(tpis)
-    ret = numpy.zeros(nt)
+    ret = np.zeros(nt)
 
     for i in range(nt):
         ret[i] = GetTimepoint(vDataSet,tpis[i])-t0
@@ -134,49 +142,63 @@ def GetResolution(vDataSet):
 def GetDataSlice(vDataSet,z,c,t):
     """Given z, channel, time indexes, return a numpy array"""
     dtype = GetType(vDataSet)
-    if dtype == numpy.uint8 or dtype == numpy.uint16:
-        arr = numpy.array(vDataSet.GetDataSliceShorts(z,c,t),dtype)
+    if dtype == np.uint8 or dtype == np.uint16:
+        arr = np.array(vDataSet.GetDataSliceShorts(z,c,t),dtype)
     else:
-        arr = numpy.array(vDataSet.GetDataSliceFloats(z,c,t),dtype)
+        arr = np.array(vDataSet.GetDataSliceFloats(z,c,t),dtype)
     return arr
 
-def SetDataSlice(vDataSet,arr,z,c,t):
+def SetDataSlice(vDataSet,arr,z,c,t,flip=True):
     """Given an array and z, channel, time indexes, replace a slice in an Imaris Dataset"""
     dtype = GetType(vDataSet)
-    if dtype == numpy.uint8 or dtype == numpy.uint16:
+    if dtype == np.uint8 or dtype == np.uint16:
         arr2 = arr.copy()
-        dtype = arr2.dtype
-        if dtype != numpy.uint16 or dtype != numpy.uint8:
-            arr2[arr2 < 0] = 0
-            arr2[arr2 > 65535] = 65535
-            arr = arr2.astype(numpy.uint16)
+        dtype2 = arr2.dtype
+        if dtype2 != np.uint16 or dtype != np.uint8:
+            ii = np.iinfo(dtype)
+            arr2[arr2 < ii.min] = ii.min
+            arr2[arr2 > ii.max] = ii.max
+            arr = arr2.astype(dtype)
+        arr = arr.transpose()
+        if flip:
+            arr = np.flip(arr,axis=1)
         vDataSet.SetDataSliceShorts(arr,z,c,t)
     else:
         vDataSet.SetDataSliceFloats(arr.tolist(),z,c,t)
 
 def GetDataVolume(vDataSet,aIndexC,aIndexT):
-    """Given channel, time indexes, return a numpy array corresponding to the volume"""
+    """Given channel, time indexes, return a numpy array corresponding to the volume
+    progress is a Tk progress bar object"""
     nx = vDataSet.GetSizeX()
     ny = vDataSet.GetSizeY()
     nz = vDataSet.GetSizeZ()
     dtype = GetType(vDataSet)
+
     if DEBUG:
         print("GetDataVolume")
         print("vDataSet:",(nz,ny,nx),GetType(vDataSet))
         print(aIndexC)
         print(aIndexT)
 
-    arr = None
-    if dtype == numpy.uint8:
+    if dtype == np.uint8:
         s = vDataSet.GetDataVolumeAs1DArrayBytes(aIndexC,aIndexT)
-        arr = numpy.fromstring(s,GetType(vDataSet)).reshape((nz,ny,nx))
-    elif dtype == numpy.uint16:
-        s = vDataSet.GetDataVolumeAs1DArrayShorts(aIndexC,aIndexT)
-        arr = numpy.array(s).reshape((nz,ny,nx)).astype(numpy.uint16)
-    elif dtype == numpy.float32:
-        s = vDataSet.GetDataVolumeAs1DArrayFloats(aIndexC,aIndexT)
-        arr = numpy.array(s).reshape((nz,ny,nx))
-    return arr
+        arr = np.frombuffer(s,dtype).reshape((nz,ny,nx)).swapaxes(1,2)
+    else:
+        #We define an empty array of the final size
+        arr = np.empty(nz*ny*nx,dtype)
+
+        if dtype == np.uint16:
+            GetData = vDataSet.GetDataSubVolumeAs1DArrayShorts
+        elif dtype == np.float32:
+            GetData = vDataSet.GetDataSubVolumeAs1DArrayFloats
+
+        #Filling-up the array
+        for z in range(nz):
+            arr[z*ny*nx:(z+1)*ny*nx] = GetData(0,0,z,aIndexC,aIndexT,nx,ny,1)
+
+        arr = arr.reshape(nz,nx,ny).swapaxes(1,2)
+
+    return np.ascontiguousarray(arr)
 
 def SetDataVolume(vDataSet,arr,aIndexC,aIndexT):
     """Given a numpy array, a channel and a time index, send the array back to Imaris"""
@@ -184,6 +206,7 @@ def SetDataVolume(vDataSet,arr,aIndexC,aIndexT):
     ny = vDataSet.GetSizeY()
     nz = vDataSet.GetSizeZ()
     dtype = GetType(vDataSet)
+
     if DEBUG:
         print("SetDataVolume")
         print("vDataSet:",(nz,ny,nx),GetType(vDataSet))
@@ -192,22 +215,37 @@ def SetDataVolume(vDataSet,arr,aIndexC,aIndexT):
         print(aIndexC)
         print(aIndexT)
 
+    #Make sure the data is in range and convert the array
     miset,maset = GetRange(vDataSet)
     arr[arr<miset]=miset
     arr[arr>maset]=maset
+    s = arr.swapaxes(1,2).astype(dtype)
 
-    if dtype == numpy.uint8:
-        s = arr.ravel().tolist()
-        vDataSet.SetDataVolumeAs1DArrayBytes(s,aIndexC,aIndexT)
-    elif dtype == numpy.uint16:
+    if dtype == np.uint8:
+        SetData = vDataSet.SetDataVolumeAs1DArrayBytes
+        s = s.tostring()
+    elif dtype == np.uint16:
+        SetData = vDataSet.SetDataVolumeAs1DArrayShorts
+    elif dtype == np.float32:
+        SetData = vDataSet.SetDataVolumeAs1DArrayFloats
+    SetData(s,aIndexC,aIndexT)
 
-        s = arr.ravel().astype(numpy.int16)
-        vDataSet.SetDataVolumeAs1DArrayShorts(s,aIndexC,aIndexT)
-    elif dtype == numpy.float32:
-        s = arr.ravel() #.tolist()
-        vDataSet.SetDataVolumeAs1DArrayFloats(s,aIndexC,aIndexT)
+    if 0:
+        #Old method slice by slice
+        if dtype == np.uint8:
+            SetData = vDataSet.SetDataSubVolumeAs1DArrayBytes
+        elif dtype == np.uint16:
+            SetData = vDataSet.SetDataSubVolumeAs1DArrayShorts
+        elif dtype == np.float32:
+            SetData = vDataSet.SetDataSubVolumeAs1DArrayFloats
 
-    vDataSet.SetChannelRange(aIndexC,miset,maset)
+        for z in range(nz):
+            t  = time.time()
+            l = arr[z,...].swapaxes(0,1).tostring()
+            SetData(l,0,0,z,aIndexC,aIndexT,nx,ny,1)
+            print z,time.time()-t
+
+    #vDataSet.SetChannelRange(aIndexC,miset,maset)
 
 def GetVoxelSize(vDataSet):
     """Returns the X,Y,X, voxel dimensions"""
