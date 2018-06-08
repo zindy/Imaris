@@ -182,7 +182,7 @@ def GetDataVolume(vDataSet,aIndexC,aIndexT):
 
     if dtype == np.uint8:
         s = vDataSet.GetDataVolumeAs1DArrayBytes(aIndexC,aIndexT)
-        arr = np.frombuffer(s,dtype).reshape((nz,ny,nx)).swapaxes(1,2)
+        arr = np.frombuffer(s,dtype).reshape((nz,ny,nx)).copy()
     else:
         #We define an empty array of the final size
         arr = np.empty(nz*ny*nx,dtype)
@@ -216,20 +216,22 @@ def SetDataVolume(vDataSet,arr,aIndexC,aIndexT):
         print(aIndexT)
 
     #Make sure the data is in range and convert the array
-    miset,maset = GetRange(vDataSet)
-    arr[arr<miset]=miset
-    arr[arr>maset]=maset
-    s = arr.astype(dtype)
+    s = arr
+    if dtype != arr.dtype:
+        miset,maset = GetRange(vDataSet)
+        arr[arr<miset]=miset
+        arr[arr>maset]=maset
+        s = arr.astype(dtype)
 
     if dtype == np.uint8:
         SetData = vDataSet.SetDataVolumeAs1DArrayBytes
         s = s.tostring()
     elif dtype == np.uint16:
-        s = np.ravel(s)
         SetData = vDataSet.SetDataVolumeAs1DArrayShorts
-    elif dtype == np.float32:
         s = np.ravel(s)
+    elif dtype == np.float32:
         SetData = vDataSet.SetDataVolumeAs1DArrayFloats
+        s = np.ravel(s)
     SetData(s,aIndexC,aIndexT)
 
     if 0:
