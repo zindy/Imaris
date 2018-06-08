@@ -196,7 +196,7 @@ def GetDataVolume(vDataSet,aIndexC,aIndexT):
         for z in range(nz):
             arr[z*ny*nx:(z+1)*ny*nx] = GetData(0,0,z,aIndexC,aIndexT,nx,ny,1)
 
-        arr = arr.reshape(nz,nx,ny).swapaxes(1,2)
+        arr = arr.reshape(nz,ny,nx)
 
     return np.ascontiguousarray(arr)
 
@@ -219,14 +219,16 @@ def SetDataVolume(vDataSet,arr,aIndexC,aIndexT):
     miset,maset = GetRange(vDataSet)
     arr[arr<miset]=miset
     arr[arr>maset]=maset
-    s = arr.swapaxes(1,2).astype(dtype)
+    s = arr.astype(dtype)
 
     if dtype == np.uint8:
         SetData = vDataSet.SetDataVolumeAs1DArrayBytes
         s = s.tostring()
     elif dtype == np.uint16:
+        s = np.ravel(s)
         SetData = vDataSet.SetDataVolumeAs1DArrayShorts
     elif dtype == np.float32:
+        s = np.ravel(s)
         SetData = vDataSet.SetDataVolumeAs1DArrayFloats
     SetData(s,aIndexC,aIndexT)
 
@@ -235,8 +237,10 @@ def SetDataVolume(vDataSet,arr,aIndexC,aIndexT):
         if dtype == np.uint8:
             SetData = vDataSet.SetDataSubVolumeAs1DArrayBytes
         elif dtype == np.uint16:
+            s = np.ravel(s)
             SetData = vDataSet.SetDataSubVolumeAs1DArrayShorts
         elif dtype == np.float32:
+            s = np.ravel(s)
             SetData = vDataSet.SetDataSubVolumeAs1DArrayFloats
 
         for z in range(nz):
