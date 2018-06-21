@@ -146,25 +146,41 @@ def GetDataSlice(vDataSet,z,c,t):
         arr = np.array(vDataSet.GetDataSliceShorts(z,c,t),dtype)
     else:
         arr = np.array(vDataSet.GetDataSliceFloats(z,c,t),dtype)
-    return arr
+    return arr.swapaxes(0,1)
 
-def SetDataSlice(vDataSet,arr,z,c,t,flip=True):
+def SetDataSlice(vDataSet,arr,aIndexZ,aIndexC,aIndexT):
     """Given an array and z, channel, time indexes, replace a slice in an Imaris Dataset"""
+    nx = vDataSet.GetSizeX()
+    ny = vDataSet.GetSizeY()
+    nz = vDataSet.GetSizeZ()
     dtype = GetType(vDataSet)
-    if dtype == np.uint8 or dtype == np.uint16:
-        arr2 = arr.copy()
-        dtype2 = arr2.dtype
-        if dtype2 != np.uint16 or dtype != np.uint8:
-            ii = np.iinfo(dtype)
-            arr2[arr2 < ii.min] = ii.min
-            arr2[arr2 > ii.max] = ii.max
-            arr = arr2.astype(dtype)
-        arr = arr.transpose()
-        if flip:
-            arr = np.flip(arr,axis=1)
-        vDataSet.SetDataSliceShorts(arr,z,c,t)
-    else:
-        vDataSet.SetDataSliceFloats(arr.tolist(),z,c,t)
+
+    if DEBUG:
+        print("SetDataVolume")
+        print("vDataSet:",(nz,ny,nx),GetType(vDataSet))
+        print(arr.shape)
+        print(arr.dtype)
+        print(aIndexC)
+        print(aIndexT)
+
+    #Make sure the data is in range and convert the array
+    s = arr
+    if dtype != arr.dtype:
+        miset,maset = GetTotalRange(vDataSet)
+        arr[arr<miset]=miset
+        arr[arr>maset]=maset
+        s = arr.astype(dtype)
+
+    s = s.swapaxes(0,1)
+    if dtype == np.uint8:
+        SetData = vDataSet.SetDataSliceBytes
+    elif dtype == np.uint16:
+        SetData = vDataSet.SetDataSliceShorts
+    elif dtype == np.float32:
+        SetData = vDataSet.SetDataSliceFloat32
+
+    SetData(s,aIndexZ,aIndexC,aIndexT)
+    #vDataSet.SetChannelRange(aIndexC,miset,maset)
 
 def GetDataVolume(vDataSet,aIndexC,aIndexT):
     """Given channel, time indexes, return a numpy array corresponding to the volume
@@ -218,7 +234,7 @@ def SetDataVolume(vDataSet,arr,aIndexC,aIndexT):
     #Make sure the data is in range and convert the array
     s = arr
     if dtype != arr.dtype:
-        miset,maset = GetRange(vDataSet)
+        miset,maset = GetTotalRange(vDataSet)
         arr[arr<miset]=miset
         arr[arr>maset]=maset
         s = arr.astype(dtype)
