@@ -252,7 +252,13 @@ class MyModule:
         #... then process all the timepoints the second time round
         if preview:
             arrayvar["preview"] = True
-            tps = [self.vImaris.GetVisibleIndexT()]
+            tp = self.vImaris.GetVisibleIndexT()
+            tps = [tp]
+
+            # Here we test if simply seeking a new timepoint and checking the filter for that timepoint. Is a filtered image available?
+            if self.wavelet_data[channel][tp] is None:
+                update_wavelet = True
+                update_threshold = True
         else:
             arrayvar["preview"] = False
             tps = range(self.vdataset_nt)
